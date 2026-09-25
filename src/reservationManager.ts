@@ -3,16 +3,11 @@ import { DEFAULT_CACHE_CONFIG } from './cache/cacheConfig';
 import { QueryCache } from './cache/queryCache';
 import type { NotificationChannel } from './notifications/channel';
 import { createNotificationChannel, DEFAULT_NOTIFIER_CONFIG } from './notifications/notifierFactory';
+import { priceFor } from './pricing';
 import { InMemoryStorageProvider } from './storage/inMemoryStorageProvider';
 import type { StorageProvider } from './storage/storageProvider';
 import type { Booking, ReservationRequest, Room } from './types';
 import { validateReservationRequest } from './validation';
-
-const PREMIUM_MULTIPLIER = 1.15;
-const LONG_BOOKING_MINUTES = 180;
-const LONG_BOOKING_MULTIPLIER = 0.9;
-const EVENING_START_MINUTE = 17 * 60;
-const EVENING_MULTIPLIER = 0.95;
 
 /** Raised when a request cannot become a booking. */
 export class BookingError extends Error {
@@ -138,23 +133,7 @@ export class ReservationManager {
 
   /** Price in cents for holding a room between two minute marks. */
   calculatePrice(room: Room, start: number, end: number): number {
-    const minutes = end - start;
-    let cents = Math.round((minutes / 60) * room.hourlyRateCents);
-    if (room.premium === true) {
-      cents = Math.round(cents * PREMIUM_MULTIPLIER);
-    }
-    return this.applyDiscounts(cents, start, minutes);
-  }
-
-  private applyDiscounts(cents: number, start: number, minutes: number): number {
-    let discounted = cents;
-    if (minutes >= LONG_BOOKING_MINUTES) {
-      discounted = Math.round(discounted * LONG_BOOKING_MULTIPLIER);
-    }
-    if (start >= EVENING_START_MINUTE) {
-      discounted = Math.round(discounted * EVENING_MULTIPLIER);
-    }
-    return discounted;
+    return priceFor(room, start, end);
   }
 
   private hasConflict(
